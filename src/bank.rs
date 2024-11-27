@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{
-    operation::Operation,
-    specification::specification::Specification,
-};
+use crate::{operation::Operation, specification::specification::Specification};
 
 #[derive(Copy, Clone)]
 pub enum Bank {
@@ -17,14 +14,24 @@ pub enum Bank {
 }
 
 impl Bank {
-    pub fn encode_request(&self, op: &Operation) -> String {
-        let spec = match self {
+    pub fn encode_request(&self, op: &Operation) -> Result<String, String> {
+        let spec = self.spec();
+        match self {
+            Bank::Stfs => {
+                let mut data = spec.parse_required_information(op);
+                if let Some(x) = data.get_mut("first_bit") {
+                    *x = "123".into();
+                }
+                spec.format(&data)
+            }
+            _ => spec.encode_request(op),
+        }
+    }
+
+    pub fn spec(&self) -> Specification {
+        match self {
             Bank::Ems | Bank::Fdms | Bank::Cardnet | Bank::Stfs => Specification::Iso8853,
             Bank::Hsbc | Bank::Lloyds | Bank::Barclays => Specification::Apacs,
-        };
-        match self {
-            Bank::Stfs => String::from("THIS IS STFS LOL"),
-            _ => spec.encode_request(op),
         }
     }
 

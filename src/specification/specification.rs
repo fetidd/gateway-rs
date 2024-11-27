@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::{operation::{Operation, RequestType}, payment::Payment};
+use crate::{
+    operation::{Operation, RequestType},
+    payment::Payment,
+};
 
 use super::bitmap_templates::*;
 
@@ -10,29 +13,44 @@ pub enum Specification {
 }
 
 impl Specification {
-    pub fn encode_request(&self, op: &Operation) -> String {
+    pub fn encode_request(&self, op: &Operation) -> Result<String, String> {
         let required_information = self.parse_required_information(op);
-        let template: BitmapTemplate = match self {
-            Specification::Iso8853 => ISO8853_BITMAP_TEMPLATE.as_slice(),
-            Specification::Apacs => APACS_BITMAP_TEMPLATE.as_slice(),
-        };
-        let separator = match self {
+        self.format(&required_information)
+    }
+
+    fn separator(&self) -> String {
+        match self {
             Specification::Iso8853 => "_",
             Specification::Apacs => "",
-        };
-        format(&required_information, &template, &separator)
+        }
+        .into()
     }
 
     pub fn parse_required_information<'a>(&self, op: &Operation) -> HashMap<String, String> {
         let mut data = HashMap::new();
         data.insert("request_type".into(), self.parse_request_type(&op));
-        for (field, value) in self.parse_transaction(&op).into_iter() { // TODO can we chain these?
+        for (field, value) in self.parse_transaction(&op).into_iter() {
             data.insert(field.into(), value);
         }
-        for (field, value) in self.parse_payment(&op).into_iter() { // TODO can we chain these?
+        for (field, value) in self.parse_payment(&op).into_iter() {
             data.insert(field.into(), value);
         }
+        match self {
+            Specification::Iso8853 => insert_iso8853_extras(&mut data),
+            _ => (),
+        };
         data
+    }
+
+    pub fn format(&self, data: &HashMap<String, String>) -> Result<String, String> {
+        match self {
+            Specification::Iso8853 => {
+                format(data, ISO8853_BITMAP_TEMPLATE.as_slice(), &self.separator())
+            }
+            Specification::Apacs => {
+                format(data, APACS_BITMAP_TEMPLATE.as_slice(), &self.separator())
+            }
+        }
     }
 
     fn parse_request_type(&self, op: &Operation) -> String {
@@ -43,7 +61,8 @@ impl Specification {
                 RequestType::AccountCheck => "ACCOUNTCHECK",
             },
             Specification::Apacs => "01",
-        }.into()
+        }
+        .into()
     }
 
     fn parse_transaction(&self, op: &Operation) -> HashMap<String, String> {
@@ -52,42 +71,63 @@ impl Specification {
         match self {
             Specification::Iso8853 => {
                 parsed.insert("amount".into(), t.amount.to_string());
-            },
-            Specification::Apacs => {},
+                parsed.insert("currency".into(), t.currency.to_string());
+                parsed.insert("name".into(), t.billingname.to_string());
+            }
+            Specification::Apacs => {
+                parsed.insert("amount".into(), t.amount.to_string());
+                parsed.insert("currency".into(), t.currency.to_string());
+                parsed.insert("name".into(), t.billingname.to_string());
+            }
         }
         parsed
     }
 
     fn parse_payment(&self, op: &Operation) -> HashMap<String, String> {
-        let mut parsed = HashMap::new();
-        let p = &op.payment;
-        match self {
-            Specification::Iso8853 => {
-                parsed.insert("account_number".into(), match p {
-                    Payment::Card { pan, ..} => pan,
-                    Payment::Account { account_number, ..} => account_number,
-                }.to_string());
-            },
-            Specification::Apacs => {},
+        match &op.payment {
+            Payment::Card {
+                pan,
+                expiry_date,
+                security_code,
+                name,
+                network,
+            } => HashMap::from(
+                [
+                    ("account_number", pan),
+                    ("expiry_date", &expiry_date.replace("/", "")),
+                    ("security_code", security_code),
+                    ("name", name),
+                    ("network", &network[..1].to_string()),
+                ]
+                .map(|(k, v)| (k.to_string(), v.to_string())),
+            ),
+            _ => unreachable!(),
         }
-        parsed
     }
-
 }
 
-fn format(data: &HashMap<String, String>, template: BitmapTemplate, separator: &str) -> String {
+fn format(
+    data: &HashMap<String, String>,
+    template: BitmapTemplate,
+    separator: &str,
+) -> Result<String, String> {
     let mut output = String::new();
-    for (i, (field, length, pad)) in template.iter().enumerate() {
-        let from_data = data.get(*field).expect("Missing {field}");
+    for (field, length, pad) in template.iter() {
+        if *field == "separator" {
+            output.push_str(separator);
+            continue;
+        }
+        let from_data = data.get(*field).expect(&format!("Missing {field}"));
         if from_data.len() > *length {
-            panic!("too long!");
+            return Err(format!("TODO {field} too long error"));
         }
         let padding = pad.repeat(length - from_data.len());
         output.push_str(&padding);
         output.push_str(from_data);
-        if i != template.len() {
-            output.push_str(separator);
-        }
     }
-    output
+    Ok(output)
+}
+
+fn insert_iso8853_extras(data: &mut HashMap<String, String>) {
+    data.insert("first_bit".into(), "abc".into());
 }
