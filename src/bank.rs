@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{operation::Operation, specification::specification::Specification};
+use crate::{operation::Operation, messaging_specification::messaging_specification::MessagingSpecification};
 
 #[derive(Copy, Clone)]
 pub enum Bank {
@@ -28,10 +28,10 @@ impl Bank {
         }
     }
 
-    pub fn spec(&self) -> Specification {
+    pub fn spec(&self) -> MessagingSpecification {
         match self {
-            Bank::Ems | Bank::Fdms | Bank::Cardnet | Bank::Stfs => Specification::Iso8853,
-            Bank::Hsbc | Bank::Lloyds | Bank::Barclays => Specification::Apacs,
+            Bank::Ems | Bank::Fdms | Bank::Cardnet | Bank::Stfs => MessagingSpecification::Iso8853,
+            Bank::Hsbc | Bank::Lloyds | Bank::Barclays => MessagingSpecification::Apacs,
         }
     }
 

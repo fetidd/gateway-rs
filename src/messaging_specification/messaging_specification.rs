@@ -7,12 +7,12 @@ use crate::{
 
 use super::bitmap_templates::*;
 
-pub enum Specification {
+pub enum MessagingSpecification {
     Iso8853,
     Apacs,
 }
 
-impl Specification {
+impl MessagingSpecification {
     pub fn encode_request(&self, op: &Operation) -> Result<String, String> {
         let required_information = self.parse_required_information(op);
         self.format(&required_information)
@@ -20,8 +20,8 @@ impl Specification {
 
     fn separator(&self) -> String {
         match self {
-            Specification::Iso8853 => "_",
-            Specification::Apacs => "",
+            MessagingSpecification::Iso8853 => "_",
+            MessagingSpecification::Apacs => "",
         }
         .into()
     }
@@ -36,7 +36,7 @@ impl Specification {
             data.insert(field.into(), value);
         }
         match self {
-            Specification::Iso8853 => insert_iso8853_extras(&mut data),
+            MessagingSpecification::Iso8853 => insert_iso8853_extras(&mut data),
             _ => (),
         };
         data
@@ -44,23 +44,21 @@ impl Specification {
 
     pub fn format(&self, data: &HashMap<String, String>) -> Result<String, String> {
         match self {
-            Specification::Iso8853 => {
-                format(data, ISO8853_BITMAP_TEMPLATE.as_slice(), &self.separator())
+            MessagingSpecification::Iso8853 => {
+                format(data, iso8853_bitmap_template().get().expect("this should always work I think"), &self.separator())
             }
-            Specification::Apacs => {
-                format(data, APACS_BITMAP_TEMPLATE.as_slice(), &self.separator())
-            }
+            MessagingSpecification::Apacs => todo!()
         }
     }
 
     fn parse_request_type(&self, op: &Operation) -> String {
         match self {
-            Specification::Iso8853 => match op.request_type {
+            MessagingSpecification::Iso8853 => match op.request_type {
                 RequestType::Auth => "AUTH",
                 RequestType::Refund => "REFUND",
                 RequestType::AccountCheck => "ACCOUNTCHECK",
             },
-            Specification::Apacs => "01",
+            MessagingSpecification::Apacs => "01",
         }
         .into()
     }
@@ -69,12 +67,12 @@ impl Specification {
         let mut parsed = HashMap::new();
         let t = &op.transaction;
         match self {
-            Specification::Iso8853 => {
+            MessagingSpecification::Iso8853 => {
                 parsed.insert("amount".into(), t.amount.to_string());
                 parsed.insert("currency".into(), t.currency.to_string());
                 parsed.insert("name".into(), t.billingname.to_string());
             }
-            Specification::Apacs => {
+            MessagingSpecification::Apacs => {
                 parsed.insert("amount".into(), t.amount.to_string());
                 parsed.insert("currency".into(), t.currency.to_string());
                 parsed.insert("name".into(), t.billingname.to_string());
@@ -108,7 +106,7 @@ impl Specification {
 
 fn format(
     data: &HashMap<String, String>,
-    template: BitmapTemplate,
+    template: &str,
     separator: &str,
 ) -> Result<String, String> {
     let mut output = String::new();
