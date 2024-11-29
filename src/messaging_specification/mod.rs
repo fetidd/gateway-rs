@@ -112,12 +112,13 @@ impl MessagingSpecification {
 fn format(data: &HashMap<String, String>, template: &BitMapTemplate) -> Result<String, String> {
     let mut output = String::new();
 
-    for pos in 0..template.length {
+    for pos in 1..template.length {
         match template.data.get(&pos).expect("TODO handle") {
             BitField::SingleValue {
                 field_name,
-                length,
                 padding_char,
+                min_length,
+                max_length,
             } => {
                 todo!()
             }

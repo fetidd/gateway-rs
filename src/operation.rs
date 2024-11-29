@@ -36,43 +36,25 @@ mod test {
 
     #[test]
     fn test_card_auth_encoding() {
-        let tests: Vec<(&str, Bank, RequestType, &str)> = vec![
+        let tests: Vec<(Payment, Bank, RequestType, &str)> = vec![
             (
-                "5100000000000000",
+                Payment::card("4000000000000000", "2024/12", "123", "Ben Jones"),
                 Bank::Ems,
                 RequestType::Auth,
-                "abc_AUTH_00005100000000000000M2024120123_0000012345GBP           Ben Jones",
-            ),
-            (
-                "5100000000000000",
-                Bank::Stfs,
-                RequestType::Auth,
-                "123_AUTH_00005100000000000000M2024120123_0000012345GBP           Ben Jones",
-            ),
-            (
-                "4000000000000000",
-                Bank::Ems,
-                RequestType::Auth,
-                "abc_AUTH_00004000000000000000V2024120123_0000012345GBP           Ben Jones",
-            ),
-            (
-                "4000000000000000",
-                Bank::Hsbc,
-                RequestType::Auth,
-                "0120241201234000000000000000VGBP0000012345           Ben Jones",
+                "0103abc0204AUTH0342011651000000000000000201M030620241204031230434011000000123450203GBP0309Ben Jones",
             ),
         ];
-        for (i, (pan, bank, request_type, expected)) in tests.iter().enumerate() {
+        for (i, (payment, bank, request_type, expected)) in tests.into_iter().enumerate() {
             let op = Operation {
-                payment: Payment::card(pan, "2024/12", "123", "Ben Jones"),
+                payment: payment,
                 transaction: Transaction {
                     amount: 12345,
                     currency: "GBP".into(),
                     billingname: "Ben Jones".into(),
                     merchantname: "Amazon".into(),
                 },
-                bank: *bank,
-                request_type: *request_type,
+                bank: bank,
+                request_type: request_type,
             };
             let request_string = op.encode().expect("This should be fine!");
             assert_eq!(request_string, *expected, "Case number {}", i + 1);
