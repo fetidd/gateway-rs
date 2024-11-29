@@ -20,14 +20,6 @@ impl MessagingSpecification {
         self.format(&required_information)
     }
 
-    fn separator(&self) -> String {
-        match self {
-            MessagingSpecification::Iso8853 => "_",
-            MessagingSpecification::Apacs => "",
-        }
-        .into()
-    }
-
     pub fn parse_required_information<'a>(&self, op: &Operation) -> HashMap<String, String> {
         let mut data = HashMap::new();
         data.insert("request_type".into(), self.parse_request_type(&op));
@@ -120,7 +112,22 @@ fn format(data: &HashMap<String, String>, template: &BitMapTemplate) -> Result<S
                 min_length,
                 max_length,
             } => {
-                todo!()
+                if let Some(data) = data.get(field_name) {
+                    let mut sub_string = String::new();
+                    // position marker
+                    sub_string.push_str(&format!("{:>2}", pos));
+                    let length = data.len();
+                    if length < *min_length {
+                        let mut padded_data = String::new();
+                        let padding = padding_char.repeat(min_length - length);
+                        padded_data.push_str(&padding);
+                        data = padded_data + &data;
+                    }
+                    // length marker
+                    sub_string.push_str(&format!("{:>2}", data.len()));
+                    // padded data
+                    output.push_str(&sub_string);
+                }
             }
             BitField::MapValue(map) => {
                 todo!()
