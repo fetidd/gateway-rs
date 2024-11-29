@@ -1,13 +1,20 @@
-use std::{sync::OnceLock, collections::HashMap};
+use std::{collections::HashMap, sync::OnceLock};
 
-struct BitMap {
-    data: HashMap<usize, BitField>,
-    separator: char
+pub struct BitMapTemplate {
+    pub data: BitMap,
+    pub separator: char,
+    pub length: usize,
 }
 
-enum BitField {
-    SingleValue {field_name: String, length: usize, padding_char: char},
-    MapValue(BitMap)
+pub type BitMap = HashMap<usize, BitField>;
+
+pub enum BitField {
+    SingleValue {
+        field_name: String,
+        length: usize,
+        padding_char: char,
+    },
+    MapValue(BitMap),
 }
 
 impl<'a> From<Iso8853BitFieldSingleValue<'a>> for BitField {
@@ -22,38 +29,37 @@ impl<'a> From<Iso8853BitFieldSingleValue<'a>> for BitField {
 
 impl<'a> From<Iso8853BitFieldMapValue<'a>> for BitField {
     fn from(value: Iso8853BitFieldMapValue) -> Self {
-        BitField::MapValue(
-            BitMap {
-                data: HashMap::from(
-                    value
-                        .into_iter()
-                        .map(|(i, j)| (i, BitField::from(j)))
-                        .collect::<Vec<(usize, BitField)>>()
-                        .as_slice()
-                ),
-                separator: ' ',
-            }
-        )
+        BitField::MapValue(value.iter().map(|(i, x)| (*i, (*x).into())).collect())
     }
 }
 
 type Iso8853BitFieldSingleValue<'a> = (&'a str, usize, char);
 type Iso8853BitFieldMapValue<'a> = HashMap<usize, Iso8853BitFieldSingleValue<'a>>;
 
-pub fn iso8853_bitmap_template() -> OnceLock<HashMap<usize, BitField>> {
-    OnceLock::from(HashMap::from([
+pub fn iso8853_bitmap_template() -> OnceLock<BitMapTemplate> {
+    let data = HashMap::from([
         (0, ("first_bit", 3, ' ').into()),
         (1, ("request_type", 4, ' ').into()),
-
-        (2, ("account_number", 20, '0').into()),
-        (3, ("network", 1, ' ').into()),
-        (4, ("expiry_date", 6, ' ').into()),
-        (5, ("security_code", 4, '0').into()),
-
+        (
+            2,
+            HashMap::from([
+                (0, ("account_number", 20, '0').into()),
+                (1, ("network", 1, ' ').into()),
+                (2, ("expiry_date", 6, ' ').into()),
+                (3, ("security_code", 4, '0').into()),
+            ])
+            .into(),
+        ),
         (6, ("amount", 10, '0').into()),
         (7, ("currency", 3, ' ').into()),
         (8, ("name", 20, ' ').into()),
-    ]))
+    ]);
+    let bm = BitMapTemplate {
+        data,
+        separator: '_',
+        length: 8,
+    };
+    OnceLock::from(bm)
 }
 
 pub const APACS_BITMAP_TEMPLATE: [(&str, usize, &str); 8] = [

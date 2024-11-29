@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{operation::Operation, messaging_specification::messaging_specification::MessagingSpecification};
+use crate::{messaging_specification::MessagingSpecification, operation::Operation};
 
 #[derive(Copy, Clone)]
 pub enum Bank {
