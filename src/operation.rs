@@ -38,48 +38,32 @@ mod test {
     fn test_card_auth_encoding() {
         let tests: Vec<(Payment, Bank, RequestType, &str)> = vec![
             (
-                Payment::card("4000000000000000", "2024/12", "123", "Ben Jones"),
+                Payment::card("5100000000000000", "2024/12", "123", "Ben Jones"),
                 Bank::Ems,
                 RequestType::Auth,
                 "0103abc0204AUTH0342011651000000000000000201M030620241204031230434011000000123450203GBP0309Ben Jones",
             ),
+            (
+                Payment::card("5100000000000000", "2024/12", "123", "Ben Jones"),
+                Bank::Stfs,
+                RequestType::Auth,
+                "01031230204AUTH0342011651000000000000000201M030620241204031230434011000000123450203GBP0309Ben Jones",
+            ),
         ];
         for (i, (payment, bank, request_type, expected)) in tests.into_iter().enumerate() {
             let op = Operation {
-                payment: payment,
+                payment,
                 transaction: Transaction {
                     amount: 12345,
                     currency: "GBP".into(),
                     billingname: "Ben Jones".into(),
                     merchantname: "Amazon".into(),
                 },
-                bank: bank,
-                request_type: request_type,
+                bank,
+                request_type,
             };
             let request_string = op.encode().expect("This should be fine!");
             assert_eq!(request_string, *expected, "Case number {}", i + 1);
         }
     }
-
-    // #[test]
-    // fn test_auth_decoding() {
-    //     let op = Operation {
-    //         payment: Payment::Card {
-    //             pan: "4000 0000 0000 0000".into(),
-    //             expiry_date: "2024/12".into(),
-    //             security_code: "123".into(),
-    //             name: "Ben Jones".into(),
-    //         },
-    //         transaction: Transaction {
-    //             amount: 12345,
-    //             currency: "GBP".into(),
-    //             billingname: "Ben Jones".into(),
-    //             merchantname: "Amazon".into(),
-    //         },
-    //         bank: Bank::Hsbc,
-    //         request_type: RequestType::Auth
-    //     };
-    //     let request_string = op.encode();
-    //     assert_eq!(request_string, "")
-    // }
 }
