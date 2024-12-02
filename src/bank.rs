@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 
-use stfs_parsers::TransactionIdentifier;
-
 use crate::{
+    Result,
     messaging_specification::{BitField, MessagingSpecification, OperationParser},
     operation::Operation,
 };
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Bank {
     Ems,
     Hsbc,
@@ -19,17 +18,18 @@ pub enum Bank {
 }
 
 impl Bank {
-    pub fn encode_request(&self, op: &Operation) -> Result<String, String> {
+    pub fn encode_request(&self, op: &Operation) -> Result<String> {
         let spec = self.spec();
         match self {
             Bank::Stfs => {
-                let mut template = spec.get_template()();
+                // STFS is essentially the iso spec but with minor differences, so all we need to do is clone the template (any less expensive way?) and change one of the parser functions
+                let mut template = spec.get_template();
                 template.entry(1).and_modify(|bf| {
                     if let BitField::Single { parser, .. } = bf {
-                        *parser = TransactionIdentifier as OperationParser;
+                        *parser = stfs_parsers::TransactionIdentifier as OperationParser;
                     }
                 });
-                spec.format(&op, &template)
+                spec.encode_using_template(&op, &template)
             }
             _ => spec.encode_request(op),
         }

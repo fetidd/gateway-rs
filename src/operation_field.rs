@@ -1,6 +1,9 @@
-use crate::bank::Bank;
+#![allow(warnings)] // TODO remove this, just want to quieten the wanrings because this is just a prototype
+
+use crate::{bank::Bank, GatewayError};
 use regex::Regex;
 use std::sync::LazyLock;
+use crate::Result;
 
 struct Mid(String);
 
@@ -13,11 +16,6 @@ macro_rules! regex {
 regex!(MID_REGEX, "[0-9]{8,}");
 regex!(STFS_MID_REGEX, "0001049[0-9]{8}");
 
-#[derive(Debug)]
-enum GatewayError {
-    ValidationError(String),
-}
-type Result<T> = std::result::Result<T, GatewayError>;
 
 impl Mid {
     fn from(value: &str, bank: &Bank) -> Result<Mid> {
@@ -47,9 +45,9 @@ macro_rules! field {
     };
 }
 
-field!(Derp(u32), &u32, {
-    return Derp(value);
-});
+// field!(Derp(u32), &u32, {
+//     return Derp(value);
+// });
 
 pub struct ValOp {
     mid: Mid,
@@ -57,7 +55,7 @@ pub struct ValOp {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
     #[test]

@@ -1,3 +1,4 @@
+#[derive(Debug, Clone, PartialEq)]
 pub struct Merchant {
     pub name: String,
     pub mid: String,
