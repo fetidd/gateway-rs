@@ -110,7 +110,7 @@ fn _format(
             } => {
                 if let Some(mut data) = parser(&op)? {
                     if data.len() > *max_length {
-                        return Err(GatewayError::EncodingError("value too long for bitfield".into()));
+                        return Err(GatewayError::EncodingError(format!("value '{data}' too long ({}) for bitfield '{pos}' ({})", data.len(), *max_length)));
                     }
                     if let Some(transformer) = single_field_transform {
                         let ctx = EncodingContext {
@@ -123,32 +123,32 @@ fn _format(
                 }
             }
             BitField::Map(map) => {
-                let mut sorted: Vec<(&usize, &BitField)> = map.iter().collect();
-                sorted.sort_by(|a, b| a.0.cmp(b.0));
+                let mut sorted_nested: Vec<(&usize, &BitField)> = map.iter().collect();
+                sorted_nested.sort_by(|a, b| a.0.cmp(b.0));
                 let mut nested = String::new();
-                for (pos, field) in sorted.into_iter() {
-                    match field {
+                for (nested_pos, nested_field) in sorted_nested.into_iter() {
+                    match nested_field {
                         BitField::Single {
                             parser,
                             padding_char,
                             min_length,
                             max_length,
                         } => {
-                            if let Some(mut data) = parser(&op)? {
-                                if data.len() > *max_length {
-                                    return Err(GatewayError::EncodingError("value too long for bitfield".into()));
+                            if let Some(mut nested_data) = parser(&op)? {
+                                if nested_data.len() > *max_length {
+                                    return Err(GatewayError::EncodingError(format!("value '{nested_data}' too long ({}) for bitfield '{pos}.{nested_pos}' ({})", nested_data.len(), *max_length)));
                                 }
                                 if let Some(transformer) = single_field_transform {
                                     let ctx = EncodingContext {
-                                        position: Some(*pos),
+                                        position: Some(*nested_pos),
                                         padding: padding_char.map(|ch| (*min_length, ch)),
                                     };
-                                    transformer(&mut data, ctx, field);
+                                    transformer(&mut nested_data, ctx, nested_field);
                                 }
-                                nested.push_str(&data);
+                                nested.push_str(&nested_data);
                             }
                         }
-                        BitField::Map(_map) => panic!("cannot handle more than 1 nested map"),
+                        BitField::Map(_map) => panic!("cannot handle more than 1 nested map"), // TODO will this ever be needed?
                     }
                 }
                 if let Some(transformer) = map_field_transform {

@@ -1,4 +1,4 @@
-use crate::currency::Currency;
+use crate::{currency::Currency, Result};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Transaction {
@@ -8,7 +8,7 @@ pub struct Transaction {
 }
 
 impl Transaction {
-    pub fn new(amount: u32, currency: Currency, billingname: Option<&str>) -> Result<Self, String> {
+    pub fn new(amount: u32, currency: Currency, billingname: Option<&str>) -> Result<Self> {
         Ok(Transaction {
             amount,
             currency,

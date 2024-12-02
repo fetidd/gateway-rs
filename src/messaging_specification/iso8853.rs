@@ -1,9 +1,15 @@
 #![allow(non_snake_case)]
 
-use crate::{map, operation::{Operation, RequestType}, payment::Payment};
-use super::{bitmap, string_field, BitField, EncodingContext, OperationParseResult, OperationParser};
+use super::{
+    bitmap, string_field, BitField, EncodingContext, OperationParseResult, OperationParser,
+};
+use crate::{
+    map,
+    operation::{Operation, RequestType},
+    payment::Payment,
+};
 
-bitmap!{ISO8853_BITMAP_TEMPLATE, 
+bitmap! {ISO8853_BITMAP_TEMPLATE,
     1 => (TransactionIdentifier as OperationParser, 3, 3, None),
     2 => (RequestType as OperationParser, 4, 4, None),
     3 => map!{
@@ -35,7 +41,6 @@ impl From<Iso8853BitField> for BitField {
     }
 }
 
-
 pub fn iso8853_string_field(data: &mut String, ctx: EncodingContext, _field: &BitField) {
     let pos = ctx.position.unwrap();
     string_field(data, ctx, _field);
@@ -48,7 +53,9 @@ pub fn TransactionIdentifier(_: &Operation) -> OperationParseResult {
 }
 
 pub fn MerchantID(op: &Operation) -> OperationParseResult {
-    Ok(Some(op.merchant.as_ref().expect("TODO handle").mid.to_string()))
+    Ok(Some(
+        op.merchant.as_ref().expect("TODO handle").mid.to_string(),
+    ))
 }
 
 pub fn RequestType(op: &Operation) -> OperationParseResult {
@@ -64,9 +71,7 @@ pub fn RequestType(op: &Operation) -> OperationParseResult {
 pub fn AccountNumber(op: &Operation) -> OperationParseResult {
     match op.payment.as_ref().expect("TODO handle") {
         Payment::Card { pan, .. } => Ok(Some(pan.into())),
-        Payment::Account { account_number, .. } => {
-            Ok(Some(account_number.into()))
-        }
+        Payment::Account { account_number, .. } => Ok(Some(account_number.into())),
     }
 }
 
@@ -79,9 +84,7 @@ pub fn Network(op: &Operation) -> OperationParseResult {
 
 pub fn ExpiryDate(op: &Operation) -> OperationParseResult {
     match op.payment.as_ref().expect("TODO handle") {
-        Payment::Card { expiry_date, .. } => {
-            Ok(Some(expiry_date.replace("/", "")))
-        }
+        Payment::Card { expiry_date, .. } => Ok(Some(expiry_date.replace("/", ""))),
         _ => Ok(None),
     }
 }
@@ -94,15 +97,33 @@ pub fn CVV(op: &Operation) -> OperationParseResult {
 }
 
 pub fn TransactionAmount(op: &Operation) -> OperationParseResult {
-    Ok(Some(op.transaction.as_ref().expect("TODO handle").amount.to_string()))
+    Ok(Some(
+        op.transaction
+            .as_ref()
+            .expect("TODO handle")
+            .amount
+            .to_string(),
+    ))
 }
 
 pub fn BillingName(op: &Operation) -> OperationParseResult {
-    Ok(Some(op.transaction.as_ref().expect("TODO handle").billingname.to_string()))
+    Ok(Some(
+        op.transaction
+            .as_ref()
+            .expect("TODO handle")
+            .billingname
+            .to_string(),
+    ))
 }
 
 pub fn Currency(op: &Operation) -> OperationParseResult {
-    Ok(Some(op.transaction.as_ref().expect("TODO handle").currency.to_string()))
+    Ok(Some(
+        op.transaction
+            .as_ref()
+            .expect("TODO handle")
+            .currency
+            .to_string(),
+    ))
 }
 
 #[cfg(test)]
@@ -118,6 +139,17 @@ mod tests {
         ];
         for (op, expected) in tests.into_iter() {
             let actual = Currency(&op).unwrap().unwrap();
+            assert_eq!(expected, actual);
+        }
+    }
+
+    #[test]
+    fn test_TransactionIdentifier() {
+        let tests = [
+            (example_operation(), "abc".to_string()),
+        ];
+        for (op, expected) in tests.into_iter() {
+            let actual = TransactionIdentifier(&op).unwrap().unwrap();
             assert_eq!(expected, actual);
         }
     }

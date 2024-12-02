@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::{bank::Bank, merchant::Merchant, payment::Payment, transaction::Transaction, GatewayError, Result};
+use crate::{
+    bank::Bank, merchant::Merchant, payment::Payment, transaction::Transaction, GatewayError,
+    Result,
+};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum RequestType {
@@ -22,7 +25,9 @@ impl Operation {
     pub fn encode(&self) -> Result<String> {
         match self.bank {
             Some(bank) => bank.encode_request(&self),
-            None => Err(GatewayError::EncodingError(format!("This operation has no bank!"))),
+            None => Err(GatewayError::EncodingError(format!(
+                "This operation has no bank! Are you sure it needs to be encoded?"
+            ))),
         }
     }
 
@@ -33,21 +38,37 @@ impl Operation {
 
 impl TryFrom<HashMap<&str, String>> for Operation {
     fn try_from(v: HashMap<&str, String>) -> Result<Self> {
-        let transaction = Transaction { 
-            amount: v.get("baseamount").unwrap().parse().map_err(|err| GatewayError::FieldError(format!("{err}")))?, 
-            currency: v.get("currencyiso3a").ok_or(GatewayError::FieldError(format!("Missing currencyiso3a")))?.parse()?, 
-            billingname: v.get("billingname").unwrap_or(&"".into()).into() 
+        let transaction = Transaction {
+            amount: v
+                .get("baseamount")
+                .unwrap()
+                .parse()
+                .map_err(|err| GatewayError::FieldError(format!("{err}")))?,
+            currency: v
+                .get("currencyiso3a")
+                .ok_or(GatewayError::FieldError(format!("Missing currencyiso3a")))?
+                .parse()?,
+            billingname: v.get("billingname").unwrap_or(&"".into()).into(),
         };
-        
+
         Ok(Operation {
             request_type: Some(RequestType::Auth),
             bank: Some(Bank::Ems),
-            payment: Some(Payment::card("4000000000000000", "2024/12", "123", "Ben Jones")),
+            payment: Some(Payment::card(
+                "4000000000000000",
+                "2024/12",
+                "123",
+                "Ben Jones",
+            )),
             transaction: Some(transaction),
-            merchant: Some(Merchant::new("Test Merchant", "000104912345678", "test@merchant.com")),
+            merchant: Some(Merchant::new(
+                "Test Merchant",
+                "000104912345678",
+                "test@merchant.com",
+            )),
         })
     }
-    
+
     type Error = GatewayError;
 }
 
@@ -56,27 +77,36 @@ mod tests {
     use core::assert_eq;
 
     use crate::{
-        bank::Bank, currency::Currency, map, merchant::test_merchant, payment::Payment, transaction::Transaction, GatewayError
+        Result,
+        bank::Bank, currency::Currency, map, merchant::test_merchant, payment::Payment,
+        transaction::Transaction, GatewayError,
     };
 
     use super::{example_operation, Operation, RequestType};
 
     #[test]
     fn test_card_auth_encoding() {
-        let tests: Vec<(Payment, Result<Transaction, String>, Bank, RequestType, &str)> = vec![
+        let tests: Vec<(Payment, Result<Transaction>, Bank, RequestType, Result<String>)> = vec![
             (
                 Payment::card("5100000000000000", "2024/12", "123", "Ben Jones"),
                 Transaction::new(12345, Currency::GBP, "Ben Jones".into()),
                 Bank::Ems,
                 RequestType::Auth,
-                "0103abc0204AUTH0342011651000000000000000201M030620241204031230434011000000123450203GBP0309Ben Jones052001160000104912345678",
+                Ok("0103abc0204AUTH0342011651000000000000000201M030620241204031230434011000000123450203GBP0309Ben Jones052001160000104912345678".to_string()),
             ),
             (
                 Payment::card("5100000000000000", "2024/12", "123", "Ben Jones"),
                 Transaction::new(12345, Currency::GBP, "Ben Jones".into()),
                 Bank::Stfs,
                 RequestType::Auth,
-                "01031230204AUTH0342011651000000000000000201M030620241204031230434011000000123450203GBP0309Ben Jones052001160000104912345678",
+                Ok("01031230204AUTH0342011651000000000000000201M030620241204031230434011000000123450203GBP0309Ben Jones052001160000104912345678".to_string()),
+            ),
+            (
+                Payment::card("5100000000000000", "2024/12", "123123", "Ben Jones"),
+                Transaction::new(12345, Currency::GBP, "Ben Jones".into()),
+                Bank::Stfs,
+                RequestType::Auth,
+                Err(GatewayError::EncodingError("value '123123' too long (6) for bitfield '3.4' (4)".into())),
             ),
         ];
         for (i, (payment, transaction, bank, request_type, expected)) in
@@ -89,8 +119,8 @@ mod tests {
                 request_type: Some(request_type),
                 merchant: Some(test_merchant()),
             };
-            let request_string = op.encode().expect("This should be fine!");
-            assert_eq!(*expected, request_string, "Case number {}", i + 1);
+            let request_string = op.encode();
+            assert_eq!(expected, request_string, "Case number {}", i + 1);
         }
     }
 
@@ -98,7 +128,7 @@ mod tests {
     fn test_operation_from_hashmap() {
         let tests = [
             (
-                map!{
+                map! {
                     "billingname"   => "Ben Jones".to_string(),
                     "currencyiso3a" => "GBP".to_string(),
                     "baseamount"    => "12345".to_string(),
@@ -106,7 +136,7 @@ mod tests {
                 Ok(example_operation()),
             ),
             (
-                map!{
+                map! {
                     "billingname"   => "Ben Jones".to_string(),
                     "baseamount"    => "12345".to_string(),
                 },
@@ -125,7 +155,12 @@ pub fn example_operation() -> crate::operation::Operation {
     use crate::merchant::test_merchant;
 
     crate::operation::Operation {
-        payment: Some(crate::payment::Payment::card("4000000000000000", "2024/12", "123", "Ben Jones")),
+        payment: Some(crate::payment::Payment::card(
+            "4000000000000000",
+            "2024/12",
+            "123",
+            "Ben Jones",
+        )),
         transaction: Some(crate::transaction::Transaction {
             amount: 12345,
             currency: crate::currency::Currency::GBP,
