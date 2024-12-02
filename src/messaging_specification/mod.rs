@@ -22,7 +22,7 @@ pub enum BitField {
 
 pub enum MessagingSpecification {
     Iso8853,
-    // Apacs,
+    Apacs,
 }
 
 impl MessagingSpecification {
@@ -33,7 +33,7 @@ impl MessagingSpecification {
     pub fn get_template(&self) -> fn() -> BitMap {
         match self {
             MessagingSpecification::Iso8853 => iso8853_bitmap_template,
-            // MessagingSpecification::Apacs => todo!(),
+            MessagingSpecification::Apacs => todo!(),
         }
     }
 
@@ -121,6 +121,8 @@ fn pad_string(string: &mut String, length: usize, padding_char: char) {
 
 #[cfg(test)]
 mod test {
+    use crate::operation::example_operation;
+
     use super::*;
     use bitmap_templates::iso8853_bitmap_template;
 

@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use iso8853_parsers::{
-    AccountNumber, BillingName, CardholderVerificationNumber, Currency, ExpiryDate, Network,
-    RequestType, TransactionAmount, TransactionIdentifier,
+    AccountNumber, BillingName, CardholderVerificationNumber, Currency, ExpiryDate, MerchantID,
+    Network, RequestType, TransactionAmount, TransactionIdentifier,
 };
 
 use super::{BitField, BitMap, OperationParser};
@@ -34,6 +34,8 @@ pub fn iso8853_bitmap_template() -> BitMap {
         (TransactionIdentifier as OperationParser, 3, 3, None).into(),
     );
     hm.insert(2, (RequestType as OperationParser, 4, 4, None).into());
+
+    // Payment Data
     let mut payment_fields = HashMap::new();
     payment_fields.insert(
         1,
@@ -52,6 +54,8 @@ pub fn iso8853_bitmap_template() -> BitMap {
             .into(),
     );
     hm.insert(3, payment_fields.into());
+
+    // Transaction Data
     let mut trxn_fields = HashMap::new();
     trxn_fields.insert(
         1,
@@ -60,6 +64,12 @@ pub fn iso8853_bitmap_template() -> BitMap {
     trxn_fields.insert(2, (Currency as OperationParser, 3, 3, None).into());
     trxn_fields.insert(3, (BillingName as OperationParser, 0, 20, Some(' ')).into());
     hm.insert(4, trxn_fields.into());
+
+    // Merchant Data
+    let mut merchant_fields = HashMap::new();
+    merchant_fields.insert(1, (MerchantID as OperationParser, 16, 16, Some('0')).into());
+    hm.insert(5, merchant_fields.into());
+
     hm
 }
 
@@ -71,6 +81,11 @@ mod iso8853_parsers {
     #[allow(non_snake_case)]
     pub fn TransactionIdentifier(_: &Operation) -> OperationParseResult {
         Ok(Some("abc".into()))
+    }
+
+    #[allow(non_snake_case)]
+    pub fn MerchantID(op: &Operation) -> OperationParseResult {
+        Ok(Some(op.merchant.mid.to_string()))
     }
 
     #[allow(non_snake_case)]
@@ -133,20 +148,5 @@ mod iso8853_parsers {
     #[allow(non_snake_case)]
     pub fn Currency(op: &Operation) -> OperationParseResult {
         Ok(Some(op.transaction.currency.to_string()))
-    }
-}
-
-#[cfg(test)]
-pub fn example_operation() -> crate::operation::Operation {
-    crate::operation::Operation {
-        payment: crate::payment::Payment::card("4000000000000000", "2024/12", "123", "Ben Jones"),
-        transaction: crate::transaction::Transaction {
-            amount: 12345,
-            currency: "GBP".into(),
-            billingname: "Ben Jones".into(),
-            merchantname: "Amazon".into(),
-        },
-        bank: crate::bank::Bank::Ems,
-        request_type: crate::operation::RequestType::Auth,
     }
 }

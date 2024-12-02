@@ -38,7 +38,7 @@ impl Bank {
     pub fn spec(&self) -> MessagingSpecification {
         match self {
             Bank::Ems | Bank::Fdms | Bank::Cardnet | Bank::Stfs => MessagingSpecification::Iso8853,
-            Bank::Hsbc | Bank::Lloyds | Bank::Barclays => MessagingSpecification::Iso8853,
+            Bank::Hsbc | Bank::Lloyds | Bank::Barclays => MessagingSpecification::Apacs,
         }
     }
 
