@@ -12,18 +12,18 @@ use crate::{
 bitmap! {ISO8853_BITMAP_TEMPLATE,
     1 => (TransactionIdentifier as OperationParser, 3, 3, None),
     2 => (RequestType as OperationParser, 4, 4, None),
-    3 => map!{
+    3 => map!{ // Payment details
         1 => (AccountNumber as OperationParser, 8, 20, Some('0')),
         2 => (Network as OperationParser, 1, 1, None),
         3 => (ExpiryDate as OperationParser, 4, 6, Some('0')),
         4 => (CVV as OperationParser, 3, 4, Some('0')),
     },
-    4 => map!{
+    4 => map!{ // Transaction details
         1 => (TransactionAmount as OperationParser, 10, 20, Some('0')),
         2 => (Currency as OperationParser, 3, 3, None),
         3 => (BillingName as OperationParser, 0, 20, Some(' ')),
     },
-    5 => map!{
+    5 => map!{ // Merchant details
         1 => (MerchantID as OperationParser, 16, 16, Some('0')),
     },
 }
@@ -134,9 +134,7 @@ mod tests {
 
     #[test]
     fn test_Currency() {
-        let tests = [
-            (example_operation(), "GBP".to_string()),
-        ];
+        let tests = [(example_operation(), "GBP".to_string())];
         for (op, expected) in tests.into_iter() {
             let actual = Currency(&op).unwrap().unwrap();
             assert_eq!(expected, actual);
@@ -145,9 +143,7 @@ mod tests {
 
     #[test]
     fn test_TransactionIdentifier() {
-        let tests = [
-            (example_operation(), "abc".to_string()),
-        ];
+        let tests = [(example_operation(), "abc".to_string())];
         for (op, expected) in tests.into_iter() {
             let actual = TransactionIdentifier(&op).unwrap().unwrap();
             assert_eq!(expected, actual);

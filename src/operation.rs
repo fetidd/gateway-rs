@@ -38,28 +38,32 @@ impl Operation {
 
 impl TryFrom<HashMap<&str, String>> for Operation {
     fn try_from(v: HashMap<&str, String>) -> Result<Self> {
-        let transaction = Transaction {
-            amount: v
-                .get("baseamount")
-                .unwrap()
-                .parse()
-                .map_err(|err| GatewayError::FieldError(format!("{err}")))?,
-            currency: v
-                .get("currencyiso3a")
-                .ok_or(GatewayError::FieldError(format!("Missing currencyiso3a")))?
-                .parse()?,
-            billingname: v.get("billingname").unwrap_or(&"".into()).into(),
-        };
+        let payment = Payment::card(
+            v.get("pan")
+                .ok_or(GatewayError::FieldError(format!("Missing pan")))?,
+            v.get("expirydate")
+                .ok_or(GatewayError::FieldError(format!("Missing expirydate")))?,
+            v.get("securitycode")
+                .ok_or(GatewayError::FieldError(format!("Missing securitycode")))?,
+            v.get("billingname")
+                .ok_or(GatewayError::FieldError(format!("Missing billingname")))?,
+        );
+        let transaction =
+            Transaction {
+                amount: v.get("baseamount").unwrap().parse().map_err(|err| {
+                    GatewayError::FieldError(format!("Invalid baseamount: {err}"))
+                })?,
+                currency: v
+                    .get("currencyiso3a")
+                    .ok_or(GatewayError::FieldError(format!("Missing currencyiso3a")))?
+                    .parse()?,
+                billingname: v.get("billingname").unwrap_or(&"".into()).into(),
+            };
 
         Ok(Operation {
             request_type: Some(RequestType::Auth),
             bank: Some(Bank::Ems),
-            payment: Some(Payment::card(
-                "4000000000000000",
-                "2024/12",
-                "123",
-                "Ben Jones",
-            )),
+            payment: Some(payment),
             transaction: Some(transaction),
             merchant: Some(Merchant::new(
                 "Test Merchant",
@@ -77,9 +81,8 @@ mod tests {
     use core::assert_eq;
 
     use crate::{
-        Result,
         bank::Bank, currency::Currency, map, merchant::test_merchant, payment::Payment,
-        transaction::Transaction, GatewayError,
+        transaction::Transaction, GatewayError, Result,
     };
 
     use super::{example_operation, Operation, RequestType};
@@ -88,21 +91,21 @@ mod tests {
     fn test_card_auth_encoding() {
         let tests: Vec<(Payment, Result<Transaction>, Bank, RequestType, Result<String>)> = vec![
             (
-                Payment::card("5100000000000000", "2024/12", "123", "Ben Jones"),
+                Payment::card("5100000000000000", "12/2024", "123", "Ben Jones"),
                 Transaction::new(12345, Currency::GBP, "Ben Jones".into()),
                 Bank::Ems,
                 RequestType::Auth,
-                Ok("0103abc0204AUTH0342011651000000000000000201M030620241204031230434011000000123450203GBP0309Ben Jones052001160000104912345678".to_string()),
+                Ok("0103abc0204AUTH0342011651000000000000000201M030612202404031230434011000000123450203GBP0309Ben Jones052001160000104912345678".to_string()),
             ),
             (
-                Payment::card("5100000000000000", "2024/12", "123", "Ben Jones"),
+                Payment::card("5100000000000000", "12/2024", "123", "Ben Jones"),
                 Transaction::new(12345, Currency::GBP, "Ben Jones".into()),
                 Bank::Stfs,
                 RequestType::Auth,
-                Ok("01031230204AUTH0342011651000000000000000201M030620241204031230434011000000123450203GBP0309Ben Jones052001160000104912345678".to_string()),
+                Ok("01031230204AUTH0342011651000000000000000201M030612202404031230434011000000123450203GBP0309Ben Jones052001160000104912345678".to_string()),
             ),
             (
-                Payment::card("5100000000000000", "2024/12", "123123", "Ben Jones"),
+                Payment::card("5100000000000000", "12/2024", "123123", "Ben Jones"),
                 Transaction::new(12345, Currency::GBP, "Ben Jones".into()),
                 Bank::Stfs,
                 RequestType::Auth,
@@ -132,13 +135,32 @@ mod tests {
                     "billingname"   => "Ben Jones".to_string(),
                     "currencyiso3a" => "GBP".to_string(),
                     "baseamount"    => "12345".to_string(),
+                    "pan"           => "4000000000000000".to_string(),
+                    "expirydate"    => "12/2024".to_string(),
+                    "securitycode"  => "123".to_string(),
                 },
                 Ok(example_operation()),
             ),
             (
                 map! {
                     "billingname"   => "Ben Jones".to_string(),
+                    "currencyiso3a" => "GBP".to_string(),
+                    "baseamount"    => "123oops".to_string(),
+                    "pan"           => "4000000000000000".to_string(),
+                    "expirydate"    => "12/2024".to_string(),
+                    "securitycode"  => "123".to_string(),
+                },
+                Err(GatewayError::FieldError(
+                    "Invalid baseamount: invalid digit found in string".into(),
+                )),
+            ),
+            (
+                map! {
+                    "billingname"   => "Ben Jones".to_string(),
                     "baseamount"    => "12345".to_string(),
+                    "pan"           => "4000000000000000".to_string(),
+                    "expirydate"    => "12/2024".to_string(),
+                    "securitycode"  => "123".to_string(),
                 },
                 Err(GatewayError::FieldError("Missing currencyiso3a".into())),
             ),
@@ -157,7 +179,7 @@ pub fn example_operation() -> crate::operation::Operation {
     crate::operation::Operation {
         payment: Some(crate::payment::Payment::card(
             "4000000000000000",
-            "2024/12",
+            "12/2024",
             "123",
             "Ben Jones",
         )),

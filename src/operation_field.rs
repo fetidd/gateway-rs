@@ -1,57 +1,66 @@
-#![allow(warnings)] // TODO remove this, just want to quieten the wanrings because this is just a prototype
+use std::any::Any;
 
-use crate::{bank::Bank, GatewayError};
-use regex::Regex;
-use std::sync::LazyLock;
 use crate::Result;
+use crate::{bank::Bank, GatewayError};
 
-struct Mid(String);
+#[derive(Debug, Clone, PartialEq)]
+pub struct Mid(String);
 
 macro_rules! regex {
     ($name:ident, $pattern:expr) => {
-        const $name: LazyLock<Regex> = LazyLock::new(|| Regex::new(stringify!($pattern)).unwrap());
+        const $name: std::sync::LazyLock<regex::Regex> =
+            std::sync::LazyLock::new(|| regex::Regex::new($pattern).unwrap());
     };
 }
+pub(crate) use regex;
 
-regex!(MID_REGEX, "[0-9]{8,}");
-regex!(STFS_MID_REGEX, "0001049[0-9]{8}");
+macro_rules! get_ctx {
+    ($ctx:ident, $type:ty) => {
+        *$ctx.unwrap().downcast::<$type>().unwrap()
+    };
+}
+pub(crate) use get_ctx;
 
+macro_rules! ctx {
+    () => {
+        None
+    };
+    ($arg:expr) => {
+        std::option::Option::Some(std::boxed::Box::new($arg))
+    };
+}
+pub(crate) use ctx;
 
-impl Mid {
-    fn from(value: &str, bank: &Bank) -> Result<Mid> {
+type Ctx = Option<Box<dyn Any>>;
+
+regex!(MID_REGEX, "[0-9]+");
+regex!(STFS_MID_REGEX, "^0001049[0-9]{8}$");
+
+pub struct ValidationContext {}
+
+pub trait Validator {
+    type Output;
+    fn validate(value: &str, ctx: Ctx) -> Result<Self::Output>;
+}
+
+impl Validator for Mid {
+    type Output = Mid;
+
+    fn validate(value: &str, ctx: Ctx) -> Result<Mid> {
+        let bank = get_ctx!(ctx, Bank);
         let ptn = match bank {
             Bank::Stfs => STFS_MID_REGEX,
             _ => MID_REGEX,
         };
-        if ptn.is_match(&value) {
+        if !ptn.is_match(&value) {
             Err(GatewayError::ValidationError(format!(
-                "mid '{value}' does not match regex"
+                "mid '{value}' does not match regex {}",
+                ptn.as_str()
             )))
         } else {
             Ok(Mid(value.into()))
         }
     }
-}
-
-macro_rules! field {
-    ($field_type:tt, $val_type:ty, $validation:block) => {
-        struct $field_type;
-        impl $field_type {
-            fn from(value: $val_type) -> Result<$field_type> {
-                $validation(&value)?;
-                Ok($field_type(value))
-            }
-        }
-    };
-}
-
-// field!(Derp(u32), &u32, {
-//     return Derp(value);
-// });
-
-pub struct ValOp {
-    mid: Mid,
-    bank: Bank,
 }
 
 #[cfg(test)]
@@ -61,9 +70,14 @@ mod tests {
     #[test]
     fn test() {
         let bank = Bank::Stfs;
-        let op = ValOp {
-            mid: Mid::from("000104912312312", &bank).unwrap(),
-            bank,
-        };
+        let mid = Mid::validate("00010491231231289", ctx!(bank));
+        assert_eq!(
+            mid,
+            Err(GatewayError::ValidationError(format!(
+                "mid '00010491231231289' does not match regex ^0001049[0-9]{{8}}$"
+            )))
+        );
+        let mid = Mid::validate("000104912312312", ctx!(bank));
+        assert_eq!(mid, Ok(Mid("000104912312312".into())));
     }
 }

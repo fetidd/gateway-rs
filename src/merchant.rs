@@ -1,7 +1,9 @@
+use crate::operation_field::{ctx, Mid, Validator};
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Merchant {
     pub name: String,
-    pub mid: String,
+    pub mid: Mid,
     pub email: String,
 }
 
@@ -9,7 +11,7 @@ impl Merchant {
     pub fn new(name: &str, mid: &str, email: &str) -> Self {
         Self {
             name: name.into(),
-            mid: mid.into(),
+            mid: Mid::validate(mid, ctx!()).unwrap(),
             email: email.into(),
         }
     }
